@@ -1,0 +1,61 @@
+name: MacRDP-Tailscale
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Tailscale
+        run: |
+          brew update
+          brew install tailscale
+
+      - name: Start Tailscale
+        env:
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+        run: |
+          echo "Starting tailscaled..."
+          sudo tailscaled >/tmp/tailscaled.log 2>&1 &
+          sleep 15
+
+          echo "=== tailscaled process ==="
+          ps aux | grep tailscaled || true
+
+          echo "=== tailscaled log ==="
+          cat /tmp/tailscaled.log || true
+
+          echo "=== tailscale version ==="
+          tailscale version || true
+
+          echo "=== Bringing interface up ==="
+          sudo tailscale up \
+            --authkey="${TS_AUTHKEY}" \
+            --hostname="github-mac-runner" \
+            --accept-routes=false
+
+      - name: Show Tailscale Status
+        run: |
+          tailscale status || true
+          tailscale ip -4 || true
+          tailscale ip -6 || true
+
+      - name: Enable SSH
+        run: |
+          sudo systemsetup -setremotelogin on
+
+      - name: Show Connection Info
+        run: |
+          echo "Hostname:"
+          hostname
+
+          echo "Tailscale IP:"
+          tailscale ip -4 || true
+
+      - name: Keep Runner Alive
+        uses: mxschmitt/action-tmate@v3
