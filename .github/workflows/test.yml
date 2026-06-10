@@ -1,0 +1,35 @@
+name: MacRDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Install Tailscale
+        run: |
+          brew install --cask tailscale
+
+      - name: Connect to Tailscale
+        env:
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+        run: |
+          sudo tailscaled >/tmp/tailscaled.log 2>&1 &
+          sleep 5
+          sudo tailscale up --authkey=${TS_AUTHKEY} --hostname=github-mac-runner
+
+      - name: Enable Screen Sharing (VNC)
+        run: |
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -clientopts -setvnclegacy -vnclegacy yes \
+            -restart -agent
+
+      - name: Show Tailscale IP
+        run: |
+          tailscale ip -4
+
+      - name: Keep Runner Alive
+        uses: mxschmitt/action-tmate@v3
